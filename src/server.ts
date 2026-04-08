@@ -1,34 +1,11 @@
-import { createServer } from "node:http";
-
-import { Probot, createNodeMiddleware } from "probot";
-
-import app from "./index.js";
 import { readRuntimeEnv } from "./env.js";
+import { loadProjectEnv } from "./project-env.js";
+import { createDiscussionVoteServer } from "./server-core.js";
 
 async function main(): Promise<void> {
+  loadProjectEnv();
   const env = readRuntimeEnv();
-  const probot = new Probot({
-    appId: env.appId,
-    privateKey: env.privateKey,
-    secret: env.webhookSecret,
-    webhookPath: env.webhookPath,
-    logLevel: env.logLevel,
-  });
-
-  if (env.dryRun) {
-    probot.log.info("Dry-run mode is enabled. Incoming discussions will be evaluated but not updated.");
-  }
-
-  const middleware = createNodeMiddleware(app, {
-    probot,
-    webhooksPath: env.webhookPath,
-  });
-  const server = createServer((request, response) => {
-    void middleware(request, response, () => {
-      response.statusCode = 404;
-      response.end("Not found");
-    });
-  });
+  const { probot, server } = createDiscussionVoteServer(env);
 
   await new Promise<void>((resolve) => {
     server.listen(env.port, () => {

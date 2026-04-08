@@ -1,7 +1,7 @@
 import type { ApplicationFunction } from "probot";
 import { z } from "zod";
 
-import { computeDiscussionTitleUpdate } from "./discussion-title.js";
+import { handleDiscussionEvent } from "./discussion-handler.js";
 
 const updateDiscussionTitleMutation = `
   mutation UpdateDiscussionTitle($discussionId: ID!, $title: String!) {
@@ -27,69 +27,31 @@ const app: ApplicationFunction = (appInstance) => {
   appInstance.on(["discussion.created", "discussion.edited"], async (context) => {
     const dryRun = process.env.DRY_RUN === "true";
     const discussion = discussionPayloadSchema.parse(context.payload.discussion);
-    const titleUpdate = computeDiscussionTitleUpdate({
-      number: discussion.number,
-      title: discussion.title,
-      body: discussion.body,
-      htmlUrl: discussion.html_url,
-      nodeId: discussion.node_id,
-    });
-
-    if (!titleUpdate.shouldUpdate) {
-      context.log.info(
-        {
-          action: context.payload.action,
-          discussionNumber: discussion.number,
-          discussionUrl: discussion.html_url,
-        },
-        "Skipping title update because no change is needed.",
-      );
-      return;
-    }
-
-    if (dryRun) {
-      context.log.info(
-        {
-          action: context.payload.action,
-          discussionNumber: discussion.number,
-          discussionUrl: discussion.html_url,
-          previousTitle: titleUpdate.currentTitle,
-          nextTitle: titleUpdate.nextTitle,
-          summarySuffix: titleUpdate.summarySuffix,
-        },
-        "Dry-run mode is enabled, so the discussion title was not updated.",
-      );
-      return;
-    }
-
-    if (!discussion.node_id) {
-      context.log.warn(
-        {
-          action: context.payload.action,
-          discussionNumber: discussion.number,
-          discussionUrl: discussion.html_url,
-        },
-        "Skipping title update because the discussion node id is missing.",
-      );
-      return;
-    }
-
-    await context.octokit.graphql(updateDiscussionTitleMutation, {
-      discussionId: discussion.node_id,
-      title: titleUpdate.nextTitle,
-    });
-
-    context.log.info(
-      {
-        action: context.payload.action,
-        discussionNumber: discussion.number,
-        discussionUrl: discussion.html_url,
-        previousTitle: titleUpdate.currentTitle,
-        nextTitle: titleUpdate.nextTitle,
-        summarySuffix: titleUpdate.summarySuffix,
+    await handleDiscussionEvent({
+      action: context.payload.action,
+      discussion: {
+        number: discussion.number,
+        title: discussion.title,
+        body: discussion.body,
+        htmlUrl: discussion.html_url,
+        nodeId: discussion.node_id,
       },
-      "Updated discussion title with vote summary.",
-    );
+      dryRun,
+      updateTitle: async ({ discussionNodeId, nextTitle }) => {
+        await context.octokit.graphql(updateDiscussionTitleMutation, {
+          discussionId: discussionNodeId,
+          title: nextTitle,
+        });
+      },
+      log: (level, message, details) => {
+        if (level === "warn") {
+          context.log.warn(details, message);
+          return;
+        }
+
+        context.log.info(details, message);
+      },
+    });
   });
 };
 

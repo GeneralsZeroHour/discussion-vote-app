@@ -6,7 +6,7 @@ const logLevels = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
 
 const runtimeEnvSchema = z
   .object({
-    APP_ID: z.coerce.number().int().positive(),
+    APP_ID: z.coerce.number().int().positive().optional(),
     PRIVATE_KEY: z.string().optional(),
     PRIVATE_KEY_PATH: z.string().optional(),
     WEBHOOK_SECRET: z.string().min(1),
@@ -18,14 +18,31 @@ const runtimeEnvSchema = z
       .optional()
       .transform((value) => value === "true"),
   })
-  .refine((value) => Boolean(value.PRIVATE_KEY || value.PRIVATE_KEY_PATH), {
-    message: "Either PRIVATE_KEY or PRIVATE_KEY_PATH must be set.",
-    path: ["PRIVATE_KEY"],
+  .superRefine((value, context) => {
+    if (value.DRY_RUN) {
+      return;
+    }
+
+    if (!value.APP_ID) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "APP_ID must be set unless DRY_RUN=true.",
+        path: ["APP_ID"],
+      });
+    }
+
+    if (!value.PRIVATE_KEY && !value.PRIVATE_KEY_PATH) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Either PRIVATE_KEY or PRIVATE_KEY_PATH must be set unless DRY_RUN=true.",
+        path: ["PRIVATE_KEY"],
+      });
+    }
   });
 
 export type RuntimeEnv = {
-  appId: number;
-  privateKey: string;
+  appId?: number;
+  privateKey?: string;
   webhookSecret: string;
   port: number;
   webhookPath: string;
@@ -35,9 +52,11 @@ export type RuntimeEnv = {
 
 export function readRuntimeEnv(source: NodeJS.ProcessEnv = process.env): RuntimeEnv {
   const parsed = runtimeEnvSchema.parse(source);
-  const privateKey =
-    parsed.PRIVATE_KEY?.replace(/\\n/g, "\n") ??
-    readFileSync(parsed.PRIVATE_KEY_PATH!, "utf8");
+  const privateKey = parsed.PRIVATE_KEY
+    ? parsed.PRIVATE_KEY.replace(/\\n/g, "\n")
+    : parsed.PRIVATE_KEY_PATH
+      ? readFileSync(parsed.PRIVATE_KEY_PATH, "utf8")
+      : undefined;
 
   return {
     appId: parsed.APP_ID,

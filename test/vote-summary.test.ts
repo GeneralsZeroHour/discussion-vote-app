@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { handleDiscussionEvent } from "../src/discussion-handler.js";
 import { computeDiscussionTitleUpdate } from "../src/discussion-title.js";
 import {
   extractApprovalCounts,
@@ -94,9 +95,40 @@ run("computeDiscussionTitleUpdate reports the next title for a discussion body",
   });
 });
 
-function run(name: string, assertion: () => void): void {
+run("handleDiscussionEvent returns a dry-run result without calling updateTitle", async () => {
+  let updateCalled = false;
+
+  const result = await handleDiscussionEvent({
+    action: "edited",
+    discussion: {
+      number: 42,
+      title: "Should we merge this?",
+      body: `
+| Member | Approval | Comments |
+|--------|----------|----------|
+| Max | ✅ | |
+| Marek | ❌ | |
+`,
+    },
+    dryRun: true,
+    updateTitle: async () => {
+      updateCalled = true;
+    },
+    log: () => {},
+  });
+
+  assert.equal(updateCalled, false);
+  assert.deepEqual(result, {
+    status: "dry-run",
+    currentTitle: "Should we merge this?",
+    nextTitle: "Should we merge this? [✅ 1, ❌ 1]",
+    summarySuffix: "[✅ 1, ❌ 1]",
+  });
+});
+
+async function run(name: string, assertion: () => void | Promise<void>): Promise<void> {
   try {
-    assertion();
+    await assertion();
     console.log(`PASS ${name}`);
   } catch (error) {
     console.error(`FAIL ${name}`);

@@ -175,6 +175,7 @@ npm install
 npm run typecheck
 npm test
 npm run simulate
+npm run smoke
 npm run dev
 ```
 
@@ -202,3 +203,27 @@ npm run simulate -- path/to/your-payload.json
 ```
 
 The simulator expects a JSON file shaped like a `discussion` webhook payload with a `discussion.title` and `discussion.body`.
+
+To confirm the discussion event handling flow locally, run:
+
+```text
+npm run smoke
+```
+
+That command:
+
+- builds the app
+- loads the bundled sample discussion webhook fixture
+- delivers it through Probot in dry-run mode
+- runs the real discussion event handler
+- prints the computed title update
+
+Expected output includes:
+
+```text
+Summary suffix: [✅ 3, ❌ 2]
+Next title: Should we merge this? [✅ 3, ❌ 2]
+Smoke test passed.
+```
+
+The smoke test also loads `.env` automatically, so it behaves like the local app configuration without needing a live GitHub App yet.
