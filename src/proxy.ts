@@ -9,7 +9,7 @@ const proxyEnvSchema = z.object({
   WEBHOOK_PATH: z.string().default("/api/github/webhooks"),
 });
 
-function main(): void {
+async function main(): Promise<void> {
   loadProjectEnv();
 
   const proxyEnv = proxyEnvSchema.parse(process.env);
@@ -19,19 +19,26 @@ function main(): void {
     target: targetUrl,
     logger: console,
   });
-  const connection = client.start();
+  await client.start();
 
   console.log("Webhook forwarding started.");
   console.log(`Source: ${proxyEnv.WEBHOOK_PROXY_URL}`);
   console.log(`Target: ${targetUrl}`);
 
-  const stop = (): void => {
-    connection.close();
+  const stop = async (): Promise<void> => {
+    await client.stop();
     process.exit(0);
   };
 
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
+  process.on("SIGINT", () => {
+    void stop();
+  });
+  process.on("SIGTERM", () => {
+    void stop();
+  });
 }
 
-main();
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -159,6 +159,8 @@ The code currently reacts to `discussion.created` and `discussion.edited` delive
 
 Copy `.env.example` to `.env` and fill in your app credentials.
 
+This project now targets Node `^20.18.1 || >=22`.
+
 Environment variables:
 
 - `APP_ID`: the GitHub App ID.

@@ -11,7 +11,7 @@ export type DiscussionVoteServer = {
   server: Server;
 };
 
-export function createDiscussionVoteServer(env: RuntimeEnv): DiscussionVoteServer {
+export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<DiscussionVoteServer> {
   const appId = env.appId ?? (env.dryRun ? 1 : undefined);
   const privateKey = env.privateKey ?? (env.dryRun ? generateEphemeralPrivateKey() : undefined);
   const probot = new Probot({
@@ -26,7 +26,7 @@ export function createDiscussionVoteServer(env: RuntimeEnv): DiscussionVoteServe
     probot.log.info("Dry-run mode is enabled. Incoming discussions will be evaluated but not updated.");
   }
 
-  const middleware = createNodeMiddleware(app, {
+  const middleware = await createNodeMiddleware(app, {
     probot,
     webhooksPath: env.webhookPath,
   });

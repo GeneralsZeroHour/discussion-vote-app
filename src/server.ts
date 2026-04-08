@@ -5,7 +5,7 @@ import { createDiscussionVoteServer } from "./server-core.js";
 async function main(): Promise<void> {
   loadProjectEnv();
   const env = readRuntimeEnv();
-  const { probot, server } = createDiscussionVoteServer(env);
+  const { probot, server } = await createDiscussionVoteServer(env);
 
   await new Promise<void>((resolve) => {
     server.listen(env.port, () => {
