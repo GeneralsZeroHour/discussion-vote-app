@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { handleDiscussionEvent } from "../src/discussion-handler.js";
 import { computeDiscussionTitleUpdate } from "../src/discussion-title.js";
+import { GraphQlRateLimitError } from "../src/rate-limit.js";
 import {
   extractApprovalCounts,
   stripManagedSuffix,
@@ -120,6 +121,40 @@ run("handleDiscussionEvent returns a dry-run result without calling updateTitle"
   assert.equal(updateCalled, false);
   assert.deepEqual(result, {
     status: "dry-run",
+    currentTitle: "Should we merge this?",
+    nextTitle: "Should we merge this? [✅ 1, ❌ 1]",
+    summarySuffix: "[✅ 1, ❌ 1]",
+  });
+});
+
+run("handleDiscussionEvent skips cleanly when GitHub GraphQL quota is exhausted", async () => {
+  const result = await handleDiscussionEvent({
+    action: "edited",
+    discussion: {
+      number: 42,
+      title: "Should we merge this?",
+      body: `
+| Member | Approval | Comments |
+|--------|----------|----------|
+| Max | ✅ | |
+| Marek | ❌ | |
+`,
+      nodeId: "D_kwDOExample4A5",
+    },
+    dryRun: false,
+    updateTitle: async () => {
+      throw new GraphQlRateLimitError(
+        "GitHub GraphQL quota is exhausted for the current installation token.",
+        120,
+        "primary",
+      );
+    },
+    log: () => {},
+  });
+
+  assert.deepEqual(result, {
+    status: "skipped",
+    reason: "rate-limited",
     currentTitle: "Should we merge this?",
     nextTitle: "Should we merge this? [✅ 1, ❌ 1]",
     summarySuffix: "[✅ 1, ❌ 1]",

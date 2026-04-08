@@ -1,4 +1,5 @@
 import { computeDiscussionTitleUpdate, type DiscussionDetails } from "./discussion-title.js";
+import { GraphQlRateLimitError } from "./rate-limit.js";
 
 export type DiscussionEventInput = {
   action: string;
@@ -11,7 +12,7 @@ export type DiscussionEventInput = {
 export type DiscussionEventResult =
   | {
       status: "skipped";
-      reason: "no-change" | "missing-node-id";
+      reason: "no-change" | "missing-node-id" | "rate-limited";
       currentTitle: string;
       nextTitle: string;
       summarySuffix: string | null;
@@ -82,10 +83,29 @@ export async function handleDiscussionEvent(
     };
   }
 
-  await input.updateTitle({
-    discussionNodeId: input.discussion.nodeId,
-    nextTitle: titleUpdate.nextTitle,
-  });
+  try {
+    await input.updateTitle({
+      discussionNodeId: input.discussion.nodeId,
+      nextTitle: titleUpdate.nextTitle,
+    });
+  } catch (error) {
+    if (error instanceof GraphQlRateLimitError) {
+      input.log("warn", "Skipping title update because GitHub GraphQL quota is exhausted.", {
+        ...logDetails,
+        retryAfterSeconds: error.retryAfterSeconds,
+        rateLimitReason: error.reason,
+      });
+      return {
+        status: "skipped",
+        reason: "rate-limited",
+        currentTitle: titleUpdate.currentTitle,
+        nextTitle: titleUpdate.nextTitle,
+        summarySuffix: titleUpdate.summarySuffix,
+      };
+    }
+
+    throw error;
+  }
 
   input.log("info", "Updated discussion title with vote summary.", logDetails);
 
@@ -96,4 +116,3 @@ export async function handleDiscussionEvent(
     summarySuffix: titleUpdate.summarySuffix,
   };
 }
-

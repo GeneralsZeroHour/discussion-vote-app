@@ -1,10 +1,50 @@
 import { generateKeyPairSync } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
-import { Probot, createNodeMiddleware } from "probot";
+import type { Octokit } from "@octokit/core";
+import type { EndpointDefaults } from "@octokit/types";
+import { Probot, ProbotOctokit, createNodeMiddleware } from "probot";
 
 import app from "./index.js";
 import type { RuntimeEnv } from "./env.js";
+import { isGraphQlRequest, rememberGraphQlCooldown } from "./rate-limit.js";
+
+const DiscussionVoteOctokit = ProbotOctokit.defaults({
+  throttle: {
+    onRateLimit: (retryAfter: number, options: Required<EndpointDefaults>, octokit: Octokit) => {
+      if (isGraphQlRequest(options)) {
+        rememberGraphQlCooldown(retryAfter);
+        octokit.log.warn(
+          `GraphQL quota exhausted for "${options.method} ${options.url}". Skipping automatic retry for ${retryAfter} seconds.`,
+        );
+        return false;
+      }
+
+      octokit.log.warn(
+        `Rate limit hit with "${options.method} ${options.url}", retrying in ${retryAfter} seconds.`,
+      );
+      return true;
+    },
+    onSecondaryRateLimit: (
+      retryAfter: number,
+      options: Required<EndpointDefaults>,
+      octokit: Octokit,
+    ) => {
+      if (isGraphQlRequest(options)) {
+        rememberGraphQlCooldown(retryAfter);
+        octokit.log.warn(
+          `Secondary GraphQL rate limit hit for "${options.method} ${options.url}". Skipping automatic retry for ${retryAfter} seconds.`,
+        );
+        return false;
+      }
+
+      octokit.log.warn(
+        `Secondary rate limit hit with "${options.method} ${options.url}", retrying in ${retryAfter} seconds.`,
+      );
+      return true;
+    },
+  },
+});
 
 export type DiscussionVoteServer = {
   probot: Probot;
@@ -17,10 +57,12 @@ export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<Discu
   const probot = new Probot({
     appId,
     privateKey,
+    Octokit: DiscussionVoteOctokit,
     secret: env.webhookSecret,
     webhookPath: env.webhookPath,
     logLevel: env.logLevel,
   });
+  await probot.ready();
 
   if (env.dryRun) {
     probot.log.info("Dry-run mode is enabled. Incoming discussions will be evaluated but not updated.");

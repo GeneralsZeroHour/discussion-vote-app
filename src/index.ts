@@ -2,6 +2,11 @@ import type { ApplicationFunction } from "probot";
 import { z } from "zod";
 
 import { handleDiscussionEvent } from "./discussion-handler.js";
+import {
+  rememberGraphQlCooldown,
+  throwIfGraphQlCooldownActive,
+  toGraphQlRateLimitError,
+} from "./rate-limit.js";
 
 const updateDiscussionTitleMutation = `
   mutation UpdateDiscussionTitle($discussionId: ID!, $title: String!) {
@@ -38,10 +43,23 @@ const app: ApplicationFunction = (appInstance) => {
       },
       dryRun,
       updateTitle: async ({ discussionNodeId, nextTitle }) => {
-        await context.octokit.graphql(updateDiscussionTitleMutation, {
-          discussionId: discussionNodeId,
-          title: nextTitle,
-        });
+        throwIfGraphQlCooldownActive();
+
+        try {
+          await context.octokit.graphql(updateDiscussionTitleMutation, {
+            discussionId: discussionNodeId,
+            title: nextTitle,
+          });
+        } catch (error) {
+          const rateLimitError = toGraphQlRateLimitError(error);
+
+          if (rateLimitError) {
+            rememberGraphQlCooldown(rateLimitError.retryAfterSeconds);
+            throw rateLimitError;
+          }
+
+          throw error;
+        }
       },
       log: (level, message, details) => {
         if (level === "warn") {
