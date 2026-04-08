@@ -6,7 +6,9 @@
   "main": "./dist/src/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "create-proxy-channel": "npm run build && node dist/src/create-proxy-channel.js",
     "dev": "tsx watch src/server.ts",
+    "proxy": "npm run build && node dist/src/proxy.js",
     "smoke": "npm run build && node dist/src/smoke.js",
     "simulate": "npm run build && node dist/src/simulate.js",
     "start": "npm run build && node dist/src/server.js",
@@ -26,6 +28,7 @@
   "homepage": "https://github.com/GeneralsZeroHour/discussion-vote-app#readme",
   "dependencies": {
     "probot": "13.4.7",
+    "smee-client": "2.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

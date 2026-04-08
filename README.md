@@ -164,6 +164,7 @@ Environment variables:
 - `APP_ID`: the GitHub App ID.
 - `PRIVATE_KEY` or `PRIVATE_KEY_PATH`: the app private key.
 - `WEBHOOK_SECRET`: the webhook secret configured on the GitHub App.
+- `WEBHOOK_PROXY_URL`: optional Smee forwarding URL for live local webhook development.
 - `PORT`: local server port. Defaults to `3000`.
 - `WEBHOOK_PATH`: webhook route. Defaults to `/api/github/webhooks`.
 - `LOG_LEVEL`: Probot log level. Defaults to `info`.
@@ -172,6 +173,8 @@ Useful commands:
 
 ```text
 npm install
+npm run create-proxy-channel
+npm run proxy
 npm run typecheck
 npm test
 npm run simulate
@@ -214,8 +217,7 @@ That command:
 
 - builds the app
 - loads the bundled sample discussion webhook fixture
-- delivers it through Probot in dry-run mode
-- runs the real discussion event handler
+- runs the real discussion event handler in dry-run mode
 - prints the computed title update
 
 Expected output includes:
@@ -227,3 +229,42 @@ Smoke test passed.
 ```
 
 The smoke test also loads `.env` automatically, so it behaves like the local app configuration without needing a live GitHub App yet.
+
+## Live GitHub integration
+
+To test against a real GitHub Discussion locally:
+
+1. Create or update a GitHub App.
+2. Set repository permission `Discussions` to `Read and write`.
+3. Subscribe the app to the `discussion` webhook event.
+4. Generate or download the app private key.
+5. Create a Smee channel with:
+
+```text
+npm run create-proxy-channel
+```
+
+6. Put the returned `WEBHOOK_PROXY_URL` into `.env`.
+7. Set the GitHub App webhook URL to that same `WEBHOOK_PROXY_URL`.
+8. Set `APP_ID`, `PRIVATE_KEY` or `PRIVATE_KEY_PATH`, `WEBHOOK_SECRET`, and `DRY_RUN=false` in `.env`.
+9. Install the app on the repository that contains the discussion you want to test.
+10. Start the app in one terminal:
+
+```text
+npm start
+```
+
+11. Start webhook forwarding in another terminal:
+
+```text
+npm run proxy
+```
+
+12. Edit the first post of a discussion so the vote table changes.
+
+If everything is wired correctly, the local app logs should show either:
+
+- `Updated discussion title with vote summary.`
+- `Skipping title update because no change is needed.`
+
+The forwarding terminal should show webhook deliveries arriving from GitHub.
