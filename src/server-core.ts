@@ -51,10 +51,10 @@ export type DiscussionVoteServer = {
   server: Server;
 };
 
-export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<DiscussionVoteServer> {
+export function createDiscussionVoteProbot(env: RuntimeEnv): Probot {
   const appId = env.appId ?? (env.dryRun ? 1 : undefined);
   const privateKey = env.privateKey ?? (env.dryRun ? generateEphemeralPrivateKey() : undefined);
-  const probot = new Probot({
+  return new Probot({
     appId,
     privateKey,
     Octokit: DiscussionVoteOctokit,
@@ -62,6 +62,13 @@ export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<Discu
     webhookPath: env.webhookPath,
     logLevel: env.logLevel,
   });
+}
+
+export async function createDiscussionVoteMiddleware(env: RuntimeEnv): Promise<{
+  probot: Probot;
+  middleware: Awaited<ReturnType<typeof createNodeMiddleware>>;
+}> {
+  const probot = createDiscussionVoteProbot(env);
   await probot.ready();
 
   if (env.dryRun) {
@@ -72,6 +79,15 @@ export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<Discu
     probot,
     webhooksPath: env.webhookPath,
   });
+
+  return {
+    probot,
+    middleware,
+  };
+}
+
+export async function createDiscussionVoteServer(env: RuntimeEnv): Promise<DiscussionVoteServer> {
+  const { probot, middleware } = await createDiscussionVoteMiddleware(env);
 
   const server = createServer((request, response) => {
     void middleware(request, response, () => {

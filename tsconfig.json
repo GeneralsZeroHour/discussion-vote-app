@@ -12,6 +12,7 @@
     "noEmitOnError": true
   },
   "include": [
+    "api/**/*.ts",
     "src/**/*.ts",
     "test/**/*.test.ts"
   ],
@@ -20,4 +21,3 @@
     "node_modules"
   ]
 }
-

@@ -270,3 +270,73 @@ If everything is wired correctly, the local app logs should show either:
 - `Skipping title update because no change is needed.`
 
 The forwarding terminal should show webhook deliveries arriving from GitHub.
+
+## Vercel deployment
+
+This app can also run on Vercel as a serverless webhook endpoint.
+
+The Vercel entrypoint lives at `api/github/webhooks/index.ts`, so the deployed webhook URL is:
+
+```text
+https://your-vercel-project.vercel.app/api/github/webhooks
+```
+
+There is also a simple health endpoint at:
+
+```text
+https://your-vercel-project.vercel.app/api/healthz
+```
+
+The project root `/` rewrites to that health endpoint through `vercel.json`, so opening the app URL in a browser should return a small JSON health response.
+
+### Vercel setup
+
+1. Push this repository to GitHub.
+2. Import the repository into Vercel.
+3. In the Vercel project settings, add these environment variables:
+
+- `APP_ID`
+- `PRIVATE_KEY`
+- `WEBHOOK_SECRET`
+- `WEBHOOK_PATH=/api/github/webhooks`
+- `LOG_LEVEL=info`
+- `DRY_RUN=false`
+- `NODEJS_HELPERS=0`
+
+4. Redeploy after saving the variables.
+
+Notes:
+
+- `NODEJS_HELPERS=0` is required for Probot on Vercel so the raw webhook body is not pre-parsed.
+- `PORT` is not needed on Vercel.
+- `WEBHOOK_PROXY_URL` is only for local Smee development and should not be set for Vercel.
+- `/api/healthz` is available for a simple deployment smoke check.
+
+### GitHub App settings for Vercel
+
+Create or update your GitHub App with:
+
+- Repository permission: `Discussions` set to `Read and write`.
+- Subscribed webhook event: `discussion`.
+- Webhook URL: `https://your-vercel-project.vercel.app/api/github/webhooks`
+- Webhook secret: exactly the same value as `WEBHOOK_SECRET` in Vercel.
+
+Then:
+
+1. Generate a private key for the GitHub App.
+2. Copy the App ID into `APP_ID`.
+3. Paste the private key contents into `PRIVATE_KEY`.
+4. Install the GitHub App on the repository whose discussion titles should be managed.
+
+### Verifying the deployment
+
+After the Vercel deployment is live and the app is installed:
+
+1. Open a discussion in the target repository.
+2. Edit the first post so the `Approval` table changes.
+3. Check the Vercel function logs.
+
+If everything is wired correctly, you should see either:
+
+- `Updated discussion title with vote summary.`
+- `Skipping title update because no change is needed.`
