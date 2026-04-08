@@ -1,14 +1,7 @@
 import type { ApplicationFunction } from "probot";
+import { z } from "zod";
 
-import { summarizeApprovalTable, updateTitleWithSummary } from "./vote-summary.js";
-
-type DiscussionPayload = {
-  number: number;
-  title: string;
-  body?: string | null;
-  html_url?: string;
-  node_id?: string;
-};
+import { computeDiscussionTitleUpdate } from "./discussion-title.js";
 
 const updateDiscussionTitleMutation = `
   mutation UpdateDiscussionTitle($discussionId: ID!, $title: String!) {
@@ -22,14 +15,27 @@ const updateDiscussionTitleMutation = `
   }
 `;
 
+const discussionPayloadSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  body: z.string().nullable().optional(),
+  html_url: z.string().optional(),
+  node_id: z.string().optional(),
+});
+
 const app: ApplicationFunction = (appInstance) => {
   appInstance.on(["discussion.created", "discussion.edited"], async (context) => {
-    const discussion = context.payload.discussion as DiscussionPayload;
-    const currentTitle = discussion.title;
-    const summarySuffix = summarizeApprovalTable(discussion.body ?? "");
-    const nextTitle = updateTitleWithSummary(currentTitle, summarySuffix);
+    const dryRun = process.env.DRY_RUN === "true";
+    const discussion = discussionPayloadSchema.parse(context.payload.discussion);
+    const titleUpdate = computeDiscussionTitleUpdate({
+      number: discussion.number,
+      title: discussion.title,
+      body: discussion.body,
+      htmlUrl: discussion.html_url,
+      nodeId: discussion.node_id,
+    });
 
-    if (nextTitle === currentTitle) {
+    if (!titleUpdate.shouldUpdate) {
       context.log.info(
         {
           action: context.payload.action,
@@ -37,6 +43,21 @@ const app: ApplicationFunction = (appInstance) => {
           discussionUrl: discussion.html_url,
         },
         "Skipping title update because no change is needed.",
+      );
+      return;
+    }
+
+    if (dryRun) {
+      context.log.info(
+        {
+          action: context.payload.action,
+          discussionNumber: discussion.number,
+          discussionUrl: discussion.html_url,
+          previousTitle: titleUpdate.currentTitle,
+          nextTitle: titleUpdate.nextTitle,
+          summarySuffix: titleUpdate.summarySuffix,
+        },
+        "Dry-run mode is enabled, so the discussion title was not updated.",
       );
       return;
     }
@@ -55,7 +76,7 @@ const app: ApplicationFunction = (appInstance) => {
 
     await context.octokit.graphql(updateDiscussionTitleMutation, {
       discussionId: discussion.node_id,
-      title: nextTitle,
+      title: titleUpdate.nextTitle,
     });
 
     context.log.info(
@@ -63,8 +84,9 @@ const app: ApplicationFunction = (appInstance) => {
         action: context.payload.action,
         discussionNumber: discussion.number,
         discussionUrl: discussion.html_url,
-        previousTitle: currentTitle,
-        nextTitle,
+        previousTitle: titleUpdate.currentTitle,
+        nextTitle: titleUpdate.nextTitle,
+        summarySuffix: titleUpdate.summarySuffix,
       },
       "Updated discussion title with vote summary.",
     );
@@ -72,4 +94,3 @@ const app: ApplicationFunction = (appInstance) => {
 };
 
 export default app;
-

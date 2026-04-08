@@ -13,6 +13,10 @@ const runtimeEnvSchema = z
     PORT: z.coerce.number().int().positive().default(3000),
     WEBHOOK_PATH: z.string().default("/api/github/webhooks"),
     LOG_LEVEL: z.enum(logLevels).default("info"),
+    DRY_RUN: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
   })
   .refine((value) => Boolean(value.PRIVATE_KEY || value.PRIVATE_KEY_PATH), {
     message: "Either PRIVATE_KEY or PRIVATE_KEY_PATH must be set.",
@@ -26,6 +30,7 @@ export type RuntimeEnv = {
   port: number;
   webhookPath: string;
   logLevel: (typeof logLevels)[number];
+  dryRun: boolean;
 };
 
 export function readRuntimeEnv(source: NodeJS.ProcessEnv = process.env): RuntimeEnv {
@@ -41,6 +46,6 @@ export function readRuntimeEnv(source: NodeJS.ProcessEnv = process.env): Runtime
     port: parsed.PORT,
     webhookPath: parsed.WEBHOOK_PATH,
     logLevel: parsed.LOG_LEVEL,
+    dryRun: parsed.DRY_RUN,
   };
 }
-

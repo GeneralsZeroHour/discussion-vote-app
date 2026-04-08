@@ -14,6 +14,11 @@ async function main(): Promise<void> {
     webhookPath: env.webhookPath,
     logLevel: env.logLevel,
   });
+
+  if (env.dryRun) {
+    probot.log.info("Dry-run mode is enabled. Incoming discussions will be evaluated but not updated.");
+  }
+
   const middleware = createNodeMiddleware(app, {
     probot,
     webhooksPath: env.webhookPath,
@@ -43,4 +48,3 @@ main().catch((error: unknown) => {
   console.error(error);
   process.exitCode = 1;
 });
-

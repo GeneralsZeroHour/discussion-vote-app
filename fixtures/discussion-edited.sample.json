@@ -1,0 +1,11 @@
+{
+  "action": "edited",
+  "discussion": {
+    "number": 42,
+    "node_id": "D_kwDOExample4A5",
+    "title": "Should we merge this?",
+    "body": "Some context before the vote.\n\n| Member | Approval | Comments |\n|--------|----------|----------|\n| Max | ✅ | |\n| Mark | ✅ | |\n| Mulan | ✅ | |\n| Marek | ❌ | |\n| Martin | ❌ | |\n",
+    "html_url": "https://github.com/GeneralsZeroHour/discussion-vote-app/discussions/42"
+  }
+}
+

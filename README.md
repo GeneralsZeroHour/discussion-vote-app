@@ -174,5 +174,31 @@ Useful commands:
 npm install
 npm run typecheck
 npm test
+npm run simulate
 npm run dev
 ```
+
+## Local confirmation
+
+You can confirm the title logic works without any GitHub setup:
+
+```text
+npm run simulate
+```
+
+Expected output for the bundled sample fixture includes:
+
+```text
+Current title: Should we merge this?
+Summary suffix: [✅ 3, ❌ 2]
+Next title: Should we merge this? [✅ 3, ❌ 2]
+Would update title: yes
+```
+
+You can also point the simulator at your own fixture:
+
+```text
+npm run simulate -- path/to/your-payload.json
+```
+
+The simulator expects a JSON file shaped like a `discussion` webhook payload with a `discussion.title` and `discussion.body`.
