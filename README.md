@@ -134,3 +134,45 @@ For a first usable version, build only this path:
 - Parse one vote table with an `Approval` column.
 - Compute a suffix like `[✅ 3, ❌ 2]`.
 - Replace or append that suffix on the discussion title.
+
+## Current implementation
+
+The repository now contains the first runnable scaffold for the app:
+
+- A `Node.js + TypeScript + Probot` app skeleton.
+- A pure parser that finds the first markdown table with an `Approval` column and builds a suffix like `[✅ 3, ❌ 2]`.
+- A discussion webhook handler for `discussion.created` and `discussion.edited`.
+- Safe title replacement that updates only the app-managed suffix.
+- Unit tests for vote parsing and title suffix replacement.
+
+## GitHub App settings
+
+Create a GitHub App with these settings:
+
+- Repository permission: `Discussions` set to `Read and write`.
+- Subscribe to the `discussion` webhook event.
+- Install the app on the repositories whose discussion titles it should manage.
+
+The code currently reacts to `discussion.created` and `discussion.edited` deliveries.
+
+## Local development
+
+Copy `.env.example` to `.env` and fill in your app credentials.
+
+Environment variables:
+
+- `APP_ID`: the GitHub App ID.
+- `PRIVATE_KEY` or `PRIVATE_KEY_PATH`: the app private key.
+- `WEBHOOK_SECRET`: the webhook secret configured on the GitHub App.
+- `PORT`: local server port. Defaults to `3000`.
+- `WEBHOOK_PATH`: webhook route. Defaults to `/api/github/webhooks`.
+- `LOG_LEVEL`: Probot log level. Defaults to `info`.
+
+Useful commands:
+
+```text
+npm install
+npm run typecheck
+npm test
+npm run dev
+```
